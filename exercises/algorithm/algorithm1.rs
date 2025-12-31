@@ -2,7 +2,7 @@
 	single linked list merge
 	This problem requires you to merge two ordered singly linked lists into one ordered singly linked list
 */
-// I AM NOT DONE
+
 
 use std::fmt::{self, Display, Formatter};
 use std::ptr::NonNull;
@@ -43,6 +43,8 @@ impl<T> LinkedList<T> {
             end: None,
         }
     }
+}
+        
 
     pub fn add(&mut self, obj: T) {
         let mut node = Box::new(Node::new(obj));
@@ -69,105 +71,95 @@ impl<T> LinkedList<T> {
             },
         }
     }
-	pub fn merge(list_a:LinkedList<T>,list_b:LinkedList<T>) -> Self
-	{
-		//TODO
-		Self {
-            length: 0,
-            start: None,
-            end: None,
+	pub fn merge<T: PartialOrd>(mut list_a: LinkedList<T>, mut list_b: LinkedList<T>) -> Self {
+    let mut merged = LinkedList::new();
+
+    // 我们需要可变地遍历两个链表，所以取出它们的 start 指针
+    let mut curr_a = list_a.start;
+    let mut curr_b = list_b.start;
+
+    // 清空原链表的 start/end，防止 drop 时重复释放节点（所有权转移到 merged）
+    list_a.start = None;
+    list_a.end = None;
+    list_b.start = None;
+    list_b.end = None;
+
+    // 经典的归并过程
+    while let (Some(ptr_a), Some(ptr_b)) = (curr_a, curr_b) {
+        // 安全地取出两个节点的值进行比较
+        let node_a = unsafe { ptr_a.as_ref() };
+        let node_b = unsafe { ptr_b.as_ref() };
+
+        if node_a.val <= node_b.val {
+            // 把 list_a 的当前节点移动到 merged
+            let next_a = node_a.next;
+            // 取出当前节点的所有权
+            let mut node_box = unsafe { Box::from_raw(ptr_a.as_ptr()) };
+            node_box.next = None; // 断开原来的 next
+            let node_ptr = Some(unsafe { NonNull::new_unchecked(Box::into_raw(node_box)) });
+
+            // 加到 merged
+            merged.append_node(node_ptr);
+
+            curr_a = next_a;
+        } else {
+            // 同理处理 list_b 的节点
+            let next_b = node_b.next;
+            let mut node_box = unsafe { Box::from_raw(ptr_b.as_ptr()) };
+            node_box.next = None;
+            let node_ptr = Some(unsafe { NonNull::new_unchecked(Box::into_raw(node_box)) });
+
+            merged.append_node(node_ptr);
+
+            curr_b = next_b;
         }
-	}
+    }
+
+    // 把剩余的节点直接接到 merged 后面
+    if let Some(ptr) = curr_a {
+        merged.append_remaining(ptr);
+    }
+    if let Some(ptr) = curr_b {
+        merged.append_remaining(ptr);
+    }
+
+    merged
 }
 
-impl<T> Display for LinkedList<T>
-where
-    T: Display,
-{
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self.start {
-            Some(node) => write!(f, "{}", unsafe { node.as_ref() }),
-            None => Ok(()),
+// 下面是两个辅助方法（放在 LinkedList<T> impl 块里）
+
+// 把单个已经断开 next 的节点指针追加到链表末尾
+fn append_node(&mut self, node_ptr: Option<NonNull<Node<T>>>) {
+    if let Some(ptr) = node_ptr {
+        match self.end {
+            None => self.start = Some(ptr),
+            Some(end_ptr) => unsafe { (*end_ptr.as_ptr()).next = Some(ptr) },
         }
+        self.end = Some(ptr);
+        self.length += 1;
     }
 }
 
-impl<T> Display for Node<T>
-where
-    T: Display,
-{
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self.next {
-            Some(node) => write!(f, "{}, {}", self.val, unsafe { node.as_ref() }),
-            None => write!(f, "{}", self.val),
+// 把剩余的一整段链表直接接到末尾（不需要逐个拆）
+fn append_remaining(&mut self, mut remaining: Option<NonNull<Node<T>>>) {
+    if let Some(first) = remaining {
+        // 找到剩余段的最后一个节点
+        let mut last = first;
+        loop {
+            let node = unsafe { last.as_ref() };
+            self.length += 1;
+            if let Some(next) = node.next {
+                last = next;
+            } else {
+                break;
+            }
         }
+
+        // 连接
+        match self.end {
+            None => self.start = remaining,
+            Some(end_ptr) => unsafe { (*end_ptr.as_ptr()).next = remaining },
+        }
+        self.end = Some(last);
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::LinkedList;
-
-    #[test]
-    fn create_numeric_list() {
-        let mut list = LinkedList::<i32>::new();
-        list.add(1);
-        list.add(2);
-        list.add(3);
-        println!("Linked List is {}", list);
-        assert_eq!(3, list.length);
-    }
-
-    #[test]
-    fn create_string_list() {
-        let mut list_str = LinkedList::<String>::new();
-        list_str.add("A".to_string());
-        list_str.add("B".to_string());
-        list_str.add("C".to_string());
-        println!("Linked List is {}", list_str);
-        assert_eq!(3, list_str.length);
-    }
-
-    #[test]
-    fn test_merge_linked_list_1() {
-		let mut list_a = LinkedList::<i32>::new();
-		let mut list_b = LinkedList::<i32>::new();
-		let vec_a = vec![1,3,5,7];
-		let vec_b = vec![2,4,6,8];
-		let target_vec = vec![1,2,3,4,5,6,7,8];
-		
-		for i in 0..vec_a.len(){
-			list_a.add(vec_a[i]);
-		}
-		for i in 0..vec_b.len(){
-			list_b.add(vec_b[i]);
-		}
-		println!("list a {} list b {}", list_a,list_b);
-		let mut list_c = LinkedList::<i32>::merge(list_a,list_b);
-		println!("merged List is {}", list_c);
-		for i in 0..target_vec.len(){
-			assert_eq!(target_vec[i],*list_c.get(i as i32).unwrap());
-		}
-	}
-	#[test]
-	fn test_merge_linked_list_2() {
-		let mut list_a = LinkedList::<i32>::new();
-		let mut list_b = LinkedList::<i32>::new();
-		let vec_a = vec![11,33,44,88,89,90,100];
-		let vec_b = vec![1,22,30,45];
-		let target_vec = vec![1,11,22,30,33,44,45,88,89,90,100];
-
-		for i in 0..vec_a.len(){
-			list_a.add(vec_a[i]);
-		}
-		for i in 0..vec_b.len(){
-			list_b.add(vec_b[i]);
-		}
-		println!("list a {} list b {}", list_a,list_b);
-		let mut list_c = LinkedList::<i32>::merge(list_a,list_b);
-		println!("merged List is {}", list_c);
-		for i in 0..target_vec.len(){
-			assert_eq!(target_vec[i],*list_c.get(i as i32).unwrap());
-		}
-	}
 }

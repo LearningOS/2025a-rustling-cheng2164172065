@@ -1,9 +1,4 @@
 // threads3.rs
-//
-// Execute `rustlings hint threads3` or use the `hint` watch subcommand for a
-// hint.
-
-// I AM NOT DONE
 
 use std::sync::mpsc;
 use std::sync::Arc;
@@ -26,32 +21,37 @@ impl Queue {
     }
 }
 
-fn send_tx(q: Queue, tx: mpsc::Sender<u32>) -> () {
-    let qc = Arc::new(q);
-    let qc1 = Arc::clone(&qc);
-    let qc2 = Arc::clone(&qc);
+fn send_tx(q: Arc<Queue>, tx: mpsc::Sender<u32>) {
+    let tx1 = tx.clone();  // 为第一个线程克隆一个发送端
+    let tx2 = tx;          // 第二个线程拿走原来的 tx
+
+    let qc1 = Arc::clone(&q);
+    let qc2 = Arc::clone(&q);
 
     thread::spawn(move || {
         for val in &qc1.first_half {
             println!("sending {:?}", val);
-            tx.send(*val).unwrap();
+            tx1.send(*val).unwrap();
             thread::sleep(Duration::from_secs(1));
         }
+        // tx1 在这里 drop
     });
 
     thread::spawn(move || {
         for val in &qc2.second_half {
             println!("sending {:?}", val);
-            tx.send(*val).unwrap();
+            tx2.send(*val).unwrap();
             thread::sleep(Duration::from_secs(1));
         }
+        // tx2 在这里 drop
     });
+    // 函数结束时，原始的 tx（如果还有）也会 drop，但我们已经给了子线程
 }
 
 fn main() {
     let (tx, rx) = mpsc::channel();
-    let queue = Queue::new();
-    let queue_length = queue.length;
+    let queue = Arc::new(Queue::new());  // 用 Arc 包装，方便共享
+    let queue_length = queue.length;    // 先保存长度
 
     send_tx(queue, tx);
 
@@ -62,5 +62,5 @@ fn main() {
     }
 
     println!("total numbers received: {}", total_received);
-    assert_eq!(total_received, queue_length)
+    assert_eq!(total_received, queue_length);
 }

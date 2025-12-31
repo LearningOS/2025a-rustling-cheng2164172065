@@ -2,7 +2,7 @@
 	queue
 	This question requires you to use queues to implement the functionality of the stac
 */
-// I AM NOT DONE
+
 
 #[derive(Debug)]
 pub struct Queue<T> {
@@ -52,30 +52,49 @@ impl<T> Default for Queue<T> {
     }
 }
 
-pub struct myStack<T>
-{
-	//TODO
-	q1:Queue<T>,
-	q2:Queue<T>
+pub struct myStack<T> {
+    q1: Queue<T>,  // 主队列：保存栈中的元素（队首是栈底，队尾是栈顶）
+    q2: Queue<T>,  // 辅助队列：用于 pop 时倒腾元素
 }
+
 impl<T> myStack<T> {
     pub fn new() -> Self {
         Self {
-			//TODO
-			q1:Queue::<T>::new(),
-			q2:Queue::<T>::new()
+            q1: Queue::<T>::new(),
+            q2: Queue::<T>::new(),
         }
     }
+
     pub fn push(&mut self, elem: T) {
-        //TODO
+        // 直接把新元素加入主队列（队尾）
+        self.q1.enqueue(elem);
     }
+
     pub fn pop(&mut self) -> Result<T, &str> {
-        //TODO
-		Err("Stack is empty")
+        if self.q1.is_empty() {
+            return Err("Stack is empty");
+        }
+
+        // 把 q1 中的元素（除了最后一个）全部移到 q2
+        while self.q1.size() > 1 {
+            let val = self.q1.dequeue().unwrap();  // 安全，因为我们已经检查了 size > 1
+            self.q2.enqueue(val);
+        }
+
+        // 此时 q1 中只剩一个元素，就是栈顶
+        let top = self.q1.dequeue().unwrap();
+
+        // 把 q2 中的元素全部移回 q1，恢复主队列状态
+        while !self.q2.is_empty() {
+            let val = self.q2.dequeue().unwrap();
+            self.q1.enqueue(val);
+        }
+
+        Ok(top)
     }
+
     pub fn is_empty(&self) -> bool {
-		//TODO
-        true
+        self.q1.is_empty()
     }
 }
 

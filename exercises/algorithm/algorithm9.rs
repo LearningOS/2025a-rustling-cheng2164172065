@@ -2,7 +2,7 @@
 	heap
 	This question requires you to implement a binary heap function
 */
-// I AM NOT DONE
+
 
 use std::cmp::Ord;
 use std::default::Default;
@@ -23,7 +23,7 @@ where
     pub fn new(comparator: fn(&T, &T) -> bool) -> Self {
         Self {
             count: 0,
-            items: vec![T::default()],
+            items: vec![T::default()],  // index 0 不使用，便于计算父子索引
             comparator,
         }
     }
@@ -37,7 +37,21 @@ where
     }
 
     pub fn add(&mut self, value: T) {
-        //TODO
+        // 1. 把新元素加到数组末尾
+        self.count += 1;
+        self.items.push(value);
+
+        // 2. 上浮（heapify up）
+        let mut idx = self.count;
+        while idx > 1 {
+            let parent = self.parent_idx(idx);
+            if (self.comparator)(&self.items[idx], &self.items[parent]) {
+                self.items.swap(idx, parent);
+                idx = parent;
+            } else {
+                break;
+            }
+        }
     }
 
     fn parent_idx(&self, idx: usize) -> usize {
@@ -57,59 +71,54 @@ where
     }
 
     fn smallest_child_idx(&self, idx: usize) -> usize {
-        //TODO
-		0
-    }
-}
+        let left = self.left_child_idx(idx);
+        let right = self.right_child_idx(idx);
 
-impl<T> Heap<T>
-where
-    T: Default + Ord,
-{
-    /// Create a new MinHeap
-    pub fn new_min() -> Self {
-        Self::new(|a, b| a < b)
-    }
-
-    /// Create a new MaxHeap
-    pub fn new_max() -> Self {
-        Self::new(|a, b| a > b)
+        if right > self.count {
+            // 只有左孩子
+            left
+        } else if (self.comparator)(&self.items[left], &self.items[right]) {
+            left
+        } else {
+            right
+        }
     }
 }
 
 impl<T> Iterator for Heap<T>
 where
-    T: Default,
+    T: Default + Ord,
 {
     type Item = T;
 
     fn next(&mut self) -> Option<T> {
-        //TODO
-		None
-    }
-}
+        if self.count == 0 {
+            return None;
+        }
 
-pub struct MinHeap;
+        // 1. 如果只有一个元素，直接弹出
+        if self.count == 1 {
+            self.count = 0;
+            return Some(self.items.pop().unwrap());
+        }
 
-impl MinHeap {
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new<T>() -> Heap<T>
-    where
-        T: Default + Ord,
-    {
-        Heap::new(|a, b| a < b)
-    }
-}
+        // 2. 取出堆顶（根节点）
+        let root = self.items.swap_remove(1);  // 交换 1 和最后一个，然后 pop
+        self.count -= 1;
 
-pub struct MaxHeap;
+        // 3. 下沉（heapify down）
+        let mut idx = 1;
+        while self.children_present(idx) {
+            let smallest = self.smallest_child_idx(idx);
+            if (self.comparator)(&self.items[smallest], &self.items[idx]) {
+                self.items.swap(idx, smallest);
+                idx = smallest;
+            } else {
+                break;
+            }
+        }
 
-impl MaxHeap {
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new<T>() -> Heap<T>
-    where
-        T: Default + Ord,
-    {
-        Heap::new(|a, b| a > b)
+        Some(root)
     }
 }
 
